@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Node from './Node';
 import { dijkstra, getNodesInShortestPathOrder as getDijkstraPath, Node as NodeClass } from '../algorithms/dijkstra';
 import { astar, getNodesInShortestPathOrder as getAStarPath } from '../algorithms/astar';
@@ -21,22 +21,17 @@ const PathfindingVisualizer = () => {
   const [weightValue, setWeightValue] = useState(5); // Default weight value
   const [dijkstraStats, setDijkstraStats] = useState({ visitedNodes: 0, pathLength: 0 });
   const [astarStats, setAstarStats] = useState({ visitedNodes: 0, pathLength: 0 });
+  const [isLoadingSavedGrid, setIsLoadingSavedGrid] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showLoadModal, setShowLoadModal] = useState(false);
+  const [gridName, setGridName] = useState('');
+  const [savedGrids, setSavedGrids] = useState([]);
   
   const dijkstraGridRef = useRef(null);
   const astarGridRef = useRef(null);
   
-  useEffect(() => {
-    initializeGrid();
-  }, [gridSize]);
-  
-  // Set CSS variables for grid dimensions
-  useEffect(() => {
-    // Update CSS variables for grid dimensions
-    document.documentElement.style.setProperty('--grid-rows', gridSize.rows);
-    document.documentElement.style.setProperty('--grid-cols', gridSize.cols);
-  }, [gridSize]);
-
-  const initializeGrid = () => {
+  // Move initializeGrid before useEffect and wrap in useCallback
+  const initializeGrid = useCallback(() => {
     const newGrid = [];
     for (let row = 0; row < gridSize.rows; row++) {
       const currentRow = [];
@@ -60,13 +55,33 @@ const PathfindingVisualizer = () => {
     // Also create copies for each algorithm
     setDijkstraGrid(deepCopyGrid(newGrid));
     setAstarGrid(deepCopyGrid(newGrid));
-  };
+  }, [gridSize, startNodePos, finishNodePos]);
 
   // Deep copy a grid to avoid reference issues
   const deepCopyGrid = (originalGrid) => {
     return originalGrid.map(row => 
       row.map(node => ({...node}))
     );
+  };
+
+  useEffect(() => {
+    // Only initialize grid if we're not loading a saved grid
+    if (!isLoadingSavedGrid) {
+      initializeGrid();
+    }
+  }, [gridSize, isLoadingSavedGrid, initializeGrid]);
+  
+  // Set CSS variables for grid dimensions
+  useEffect(() => {
+    // Update CSS variables for grid dimensions
+    document.documentElement.style.setProperty('--grid-rows', gridSize.rows);
+    document.documentElement.style.setProperty('--grid-cols', gridSize.cols);
+  }, [gridSize]);
+
+  // Add weight value control to the UI
+  const handleWeightValueChange = (e) => {
+    const newValue = parseInt(e.target.value);
+    setWeightValue(newValue);
   };
 
   const handleMouseDown = (row, col) => {
@@ -199,12 +214,16 @@ const PathfindingVisualizer = () => {
     if (algorithmType === 'dijkstra') {
       setDijkstraStats({
         visitedNodes: visitedNodesInOrder.length,
-        pathLength: nodesInShortestPathOrder.length
+        pathLength: nodesInShortestPathOrder
+          .filter(node => !node.isStart && !node.isFinish)
+          .reduce((sum, node) => sum + node.weight, 0)
       });
     } else {
       setAstarStats({
         visitedNodes: visitedNodesInOrder.length,
-        pathLength: nodesInShortestPathOrder.length
+        pathLength: nodesInShortestPathOrder
+          .filter(node => !node.isStart && !node.isFinish)
+          .reduce((sum, node) => sum + node.weight, 0)
       });
     }
     
@@ -388,21 +407,6 @@ const PathfindingVisualizer = () => {
     setAstarStats({ visitedNodes: 0, pathLength: 0 });
   };
 
-  // Clear walls and weights helper method
-  const clearWallsAndWeights = () => {
-    return grid.map(row => 
-      row.map(node => {
-        const newNode = {...node};
-        newNode.isWall = false;
-        newNode.isWeight = false;
-        newNode.weight = 1;
-        newNode.isVisited = false;
-        newNode.isPath = false;
-        return newNode;
-      })
-    );
-  };
-
   // Generate a weighted maze
   const generateWeightedMaze = () => {
     // Don't generate during animation
@@ -507,246 +511,287 @@ const PathfindingVisualizer = () => {
 
   // Store grid in local storage
   const saveGrid = () => {
-    // Don't save during animation
     if (isRunning) return;
-    
-    const gridState = {
-      walls: [],
-      weights: [],
-      startNodePos,
-      finishNodePos,
-      gridSize
-    };
-    
-    // Save wall and weight positions
-    for (let row = 0; row < grid.length; row++) {
-      for (let col = 0; col < grid[0].length; col++) {
-        const node = grid[row][col];
-        if (node.isWall) {
-          gridState.walls.push({ row, col });
-        }
-        if (node.isWeight) {
-          gridState.weights.push({ row, col, weight: node.weight });
+    setShowSaveModal(true);
+  };
+
+  const handleSaveGrid = () => {
+    if (!gridName.trim()) {
+      alert('Please enter a name for the grid');
+      return;
+    }
+
+    try {
+      const gridState = {
+        name: gridName.trim(),
+        walls: [],
+        weights: [],
+        startNodePos,
+        finishNodePos,
+        gridSize,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Save wall and weight positions
+      for (let row = 0; row < grid.length; row++) {
+        for (let col = 0; col < grid[0].length; col++) {
+          const node = grid[row][col];
+          if (node.isWall) {
+            gridState.walls.push({ row, col });
+          }
+          if (node.isWeight) {
+            gridState.weights.push({ row, col, weight: node.weight });
+          }
         }
       }
+      
+      // Get existing saved grids
+      const currentSavedGrids = JSON.parse(localStorage.getItem('savedGrids') || '[]');
+      
+      // Add new grid to saved grids
+      currentSavedGrids.push(gridState);
+      
+      // Keep only the last 5 saved grids
+      const recentGrids = currentSavedGrids.slice(-5);
+      
+      // Save to localStorage
+      localStorage.setItem('savedGrids', JSON.stringify(recentGrids));
+      setSavedGrids(recentGrids);
+      setShowSaveModal(false);
+      setGridName('');
+      
+      // Log the saved state for debugging
+      console.log('Saved grid state:', gridState);
+    } catch (error) {
+      console.error('Error saving grid:', error);
+      alert('Failed to save grid. Please try again.');
     }
-    
-    localStorage.setItem('pathfindingGrid', JSON.stringify(gridState));
-    alert('Grid saved!');
   };
 
   // Load grid from local storage
   const loadGrid = () => {
-    // Don't load during animation
     if (isRunning) return;
     
-    const savedGrid = localStorage.getItem('pathfindingGrid');
-    if (!savedGrid) {
-      alert('No saved grid found!');
-      return;
-    }
-    
-    const gridState = JSON.parse(savedGrid);
-    
-    // Update grid size and start/finish positions
-    setGridSize(gridState.gridSize);
-    setStartNodePos(gridState.startNodePos);
-    setFinishNodePos(gridState.finishNodePos);
-    
-    // Initialize grid with new size
-    const newGrid = [];
-    for (let row = 0; row < gridState.gridSize.rows; row++) {
-      const currentRow = [];
-      for (let col = 0; col < gridState.gridSize.cols; col++) {
-        const newNode = new NodeClass(row, col);
-        
-        // Set start and finish nodes
-        if (row === gridState.startNodePos.row && col === gridState.startNodePos.col) {
-          newNode.isStart = true;
-        }
-        if (row === gridState.finishNodePos.row && col === gridState.finishNodePos.col) {
-          newNode.isFinish = true;
-        }
-        
-        // Set walls
-        for (const wall of gridState.walls) {
-          if (row === wall.row && col === wall.col) {
-            newNode.isWall = true;
-            break;
-          }
-        }
-        
-        // Set weights
-        for (const weight of gridState.weights) {
-          if (row === weight.row && col === weight.col) {
-            newNode.isWeight = true;
-            newNode.weight = weight.weight;
-            break;
-          }
-        }
-        
-        currentRow.push(newNode);
+    try {
+      // Get saved grids
+      const currentSavedGrids = JSON.parse(localStorage.getItem('savedGrids') || '[]');
+      setSavedGrids(currentSavedGrids);
+      
+      if (currentSavedGrids.length === 0) {
+        alert('No saved grids found!');
+        return;
       }
-      newGrid.push(currentRow);
+      
+      setShowLoadModal(true);
+    } catch (error) {
+      console.error('Error loading grid:', error);
+      alert('Failed to load grid. Please try again.');
     }
-    
-    setGrid(newGrid);
-    setDijkstraGrid(deepCopyGrid(newGrid));
-    setAstarGrid(deepCopyGrid(newGrid));
+  };
+
+  const handleLoadGrid = (gridState) => {
+    try {
+      // Set loading flag
+      setIsLoadingSavedGrid(true);
+      
+      // Log the loaded state for debugging
+      console.log('Loading grid state:', gridState);
+      
+      // Create new grid with saved state
+      const newGrid = [];
+      for (let row = 0; row < gridState.gridSize.rows; row++) {
+        const currentRow = [];
+        for (let col = 0; col < gridState.gridSize.cols; col++) {
+          const newNode = new NodeClass(row, col);
+          
+          // Set start and finish nodes
+          if (row === gridState.startNodePos.row && col === gridState.startNodePos.col) {
+            newNode.isStart = true;
+          }
+          if (row === gridState.finishNodePos.row && col === gridState.finishNodePos.col) {
+            newNode.isFinish = true;
+          }
+          
+          // Set walls
+          const isWall = gridState.walls.some(wall => wall.row === row && wall.col === col);
+          if (isWall) {
+            newNode.isWall = true;
+          }
+          
+          // Set weights
+          const weightNode = gridState.weights.find(weight => weight.row === row && weight.col === col);
+          if (weightNode) {
+            newNode.isWeight = true;
+            newNode.weight = weightNode.weight;
+          }
+          
+          currentRow.push(newNode);
+        }
+        newGrid.push(currentRow);
+      }
+      
+      // First update grid size and positions
+      setGridSize(gridState.gridSize);
+      setStartNodePos(gridState.startNodePos);
+      setFinishNodePos(gridState.finishNodePos);
+      
+      // Then update the grids
+      setGrid(newGrid);
+      
+      // Create deep copies for algorithm grids
+      const dijkstraGridCopy = deepCopyGrid(newGrid);
+      const astarGridCopy = deepCopyGrid(newGrid);
+      
+      // Update algorithm grids
+      setDijkstraGrid(dijkstraGridCopy);
+      setAstarGrid(astarGridCopy);
+      
+      // Reset stats
+      setDijkstraStats({ visitedNodes: 0, pathLength: 0 });
+      setAstarStats({ visitedNodes: 0, pathLength: 0 });
+      
+      // Force a re-render by updating a dummy state
+      setCurrentNodeType(prev => prev === 'wall' ? 'weight' : 'wall');
+      
+      // Reset loading flag after a short delay
+      setTimeout(() => {
+        setIsLoadingSavedGrid(false);
+        // Force another re-render after loading is complete
+        setCurrentNodeType(prev => prev === 'wall' ? 'weight' : 'wall');
+      }, 100);
+      
+      setShowLoadModal(false);
+      
+      // Log the loaded grid for debugging
+      console.log('Loaded grid:', newGrid);
+      console.log('Walls:', gridState.walls);
+      console.log('Weights:', gridState.weights);
+    } catch (error) {
+      console.error('Error loading grid:', error);
+      alert('Failed to load grid. Please try again.');
+      setIsLoadingSavedGrid(false);
+    }
   };
 
   return (
     <div className="pathfinding-visualizer">
       <div className="sidebar">
-        <h1>Pathfinding Visualizer</h1>
+        <h1>
+          <img src={require('../assets/logo-export.png')} alt="Pathfinding Visualizer" />
+        </h1>
         
-        <div className="sidebar-section">
-          <h2>Algorithms</h2>
-          <div className="controls">
-            <button onClick={visualizeAlgorithms} disabled={isRunning}>Visualize Algorithms</button>
-            <button onClick={resetGrid} disabled={isRunning}>Reset Grid</button>
-          </div>
-        </div>
-        
-        <div className="sidebar-section">
-          <h2>Grid Setup</h2>
-          <div className="controls">
-            <button onClick={() => setIsSettingStart(true)} disabled={isRunning}>Set Start Node</button>
-            <button onClick={() => setIsSettingFinish(true)} disabled={isRunning}>Set End Node</button>
-            <button onClick={setRandomStartFinish} disabled={isRunning}>Random Start/End</button>
-            
-            <div className="size-control">
-              <label>Grid Size:</label>
-              <select 
-                value={`${gridSize.rows}x${gridSize.cols}`} 
-                onChange={(e) => {
-                  const [rows, cols] = e.target.value.split('x').map(Number);
-                  updateGridSize(rows, cols);
-                }}
-                disabled={isRunning}
-              >
-                <option value="10x10">10x10</option>
-                <option value="15x15">15x15</option>
-                <option value="20x20">20x20</option>
-                <option value="25x25">25x25</option>
-                <option value="30x30">30x30</option>
-              </select>
+        <div className="sidebar-content">
+          <div className="sidebar-section">
+            <h2>Algorithms</h2>
+            <div className="controls">
+              <button onClick={visualizeAlgorithms} disabled={isRunning}>Find Path</button>
+              <button onClick={resetGrid} disabled={isRunning}>Reset</button>
             </div>
           </div>
-        </div>
-        
-        <div className="sidebar-section">
-          <h2>Node Types</h2>
-          <div className="controls">
-            <button 
-              onClick={() => {
-                setCurrentNodeType('wall');
-                setIsSettingWeight(false);
-              }} 
-              disabled={isRunning}
-              style={{backgroundColor: currentNodeType === 'wall' ? '#2E7D32' : ''}}
-            >
-              Draw Walls
-            </button>
-            <button 
-              onClick={() => {
-                setCurrentNodeType('weight');
-                setIsSettingWeight(true);
-              }} 
-              disabled={isRunning}
-              style={{backgroundColor: currentNodeType === 'weight' ? '#2E7D32' : ''}}
-            >
-              Draw Weights
-            </button>
-            <button onClick={clearWalls} disabled={isRunning}>Clear Walls & Weights</button>
-            
-            <div className="speed-control">
-              <label>Weight Value:</label>
-              <select 
-                value={weightValue} 
-                onChange={(e) => setWeightValue(parseInt(e.target.value))}
-                disabled={isRunning}
-              >
-                <option value="2">2</option>
-                <option value="5">5</option>
-                <option value="10">10</option>
-              </select>
+          
+          <div className="sidebar-section">
+            <h2>Grid Setup</h2>
+            <div className="controls">
+              <button onClick={() => setIsSettingStart(true)} disabled={isRunning}>Set Start Node</button>
+              <button onClick={() => setIsSettingFinish(true)} disabled={isRunning}>Set End Node</button>
+              <button onClick={setRandomStartFinish} disabled={isRunning}>Random Start/End</button>
+              
+              <div className="size-control">
+                <label>Grid Size:</label>
+                <select 
+                  value={`${gridSize.rows}x${gridSize.cols}`} 
+                  onChange={(e) => {
+                    const [rows, cols] = e.target.value.split('x').map(Number);
+                    updateGridSize(rows, cols);
+                  }}
+                  disabled={isRunning}
+                >
+                  <option value="10x10">10x10</option>
+                  <option value="15x15">15x15</option>
+                  <option value="20x20">20x20</option>
+                  <option value="25x25">25x25</option>
+                  <option value="30x30">30x30</option>
+                </select>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div className="sidebar-section">
-          <h2>Maze Generation</h2>
-          <div className="controls">
-            <button onClick={generateRandomMaze} disabled={isRunning}>Generate Random Maze</button>
-            <button onClick={generateWeightedMaze} disabled={isRunning}>Generate Weighted Maze</button>
-          </div>
-        </div>
-        
-        <div className="sidebar-section">
-          <h2>Animation Speed</h2>
-          <div className="controls">
-            <div className="speed-control">
-              <label>Speed:</label>
-              <select 
-                value={visualizationSpeed} 
-                onChange={(e) => setVisualizationSpeed(parseInt(e.target.value))}
+          
+          <div className="sidebar-section">
+            <h2>Node Types</h2>
+            <div className="controls">
+              <button 
+                onClick={() => {
+                  setCurrentNodeType('wall');
+                  setIsSettingWeight(false);
+                }} 
                 disabled={isRunning}
               >
-                <option value="10">Fast</option>
-                <option value="50">Medium</option>
-                <option value="100">Slow</option>
-              </select>
+                Draw Walls
+              </button>
+              <button 
+                onClick={() => {
+                  setCurrentNodeType('weight');
+                  setIsSettingWeight(true);
+                }} 
+                disabled={isRunning}
+                style={{backgroundColor: currentNodeType === 'weight' ? '#2E7D32' : ''}}
+              >
+                Draw Weights
+              </button>
+              {currentNodeType === 'weight' && (
+                <div className="weight-control">
+                  <label>Weight Value:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={weightValue}
+                    onChange={handleWeightValueChange}
+                    disabled={isRunning}
+                  />
+                </div>
+              )}
+              <button onClick={clearWalls} disabled={isRunning}>Clear Walls & Weights</button>
             </div>
           </div>
-        </div>
-        
-        <div className="sidebar-section">
-          <h2>Save & Load</h2>
-          <div className="controls">
-            <button onClick={saveGrid} disabled={isRunning}>Save Grid</button>
-            <button onClick={loadGrid} disabled={isRunning}>Load Grid</button>
+          
+          <div className="sidebar-section">
+            <h2>Maze Generation</h2>
+            <div className="controls">
+              <button onClick={generateRandomMaze} disabled={isRunning}>Generate Random Maze</button>
+              <button onClick={generateWeightedMaze} disabled={isRunning}>Generate Weighted Maze</button>
+            </div>
+          </div>
+          
+          <div className="sidebar-section">
+            <h2>Animation Speed</h2>
+            <div className="controls">
+              <div className="speed-control">
+                <label>Speed:</label>
+                <select 
+                  value={visualizationSpeed} 
+                  onChange={(e) => setVisualizationSpeed(parseInt(e.target.value))}
+                  disabled={isRunning}
+                >
+                  <option value="10">Fast</option>
+                  <option value="50">Medium</option>
+                  <option value="100">Slow</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div className="sidebar-section">
+            <h2>Save & Load</h2>
+            <div className="controls">
+              <button onClick={saveGrid} disabled={isRunning}>Save Grid</button>
+              <button onClick={loadGrid} disabled={isRunning}>Load Grid</button>
+            </div>
           </div>
         </div>
       </div>
       
       <div className="main-content">
-        <div className="instructions">
-          {isSettingStart && <p className="highlight">Click on a cell to set the start point</p>}
-          {isSettingFinish && <p className="highlight">Click on a cell to set the end point</p>}
-          {isRunning && <p className="highlight">Algorithm visualization in progress...</p>}
-        </div>
-        
-        <div className="legend-container">
-          <h2>Legend</h2>
-          <div className="legend">
-            <div className="legend-item">
-              <div className="legend-color start"></div>
-              <span>Start Node</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color finish"></div>
-              <span>End Node</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color wall"></div>
-              <span>Wall</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color weight"></div>
-              <span>Weight</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color visited"></div>
-              <span>Visited Node</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color path"></div>
-              <span>Shortest Path</span>
-            </div>
-          </div>
-        </div>
-        
         <div className="grid-container">
           <div className="algorithm-grid">
             <div className="algorithm-title">Dijkstra's Algorithm</div>
@@ -755,7 +800,7 @@ const PathfindingVisualizer = () => {
                 return (
                   <div key={rowIdx} className="row">
                     {row.map((node, nodeIdx) => {
-                      const { row, col, isStart, isFinish, isWall, isWeight, isVisited, isPath } = node;
+                      const { row, col, isStart, isFinish, isWall, isWeight, isVisited, isPath, weight } = node;
                       return (
                         <Node
                           key={nodeIdx}
@@ -767,6 +812,7 @@ const PathfindingVisualizer = () => {
                           isWeight={isWeight}
                           isVisited={isVisited}
                           isPath={isPath}
+                          weight={weight}
                           onMouseDown={(r, c) => handleMouseDown(r, c)}
                           onMouseEnter={(r, c) => handleMouseEnter(r, c)}
                           onMouseUp={() => handleMouseUp()}
@@ -778,9 +824,8 @@ const PathfindingVisualizer = () => {
               })}
             </div>
             <div className="algorithm-stats">
-              <span className="algorithm-name dijkstra-color">Dijkstra:</span>
-              <span>Nodes: {dijkstraStats.visitedNodes}</span>
-              <span>Path: {dijkstraStats.pathLength}</span>
+              <span>Nodes Visited: {dijkstraStats.visitedNodes}</span>
+              <span>Path Length: {dijkstraStats.pathLength}</span>
             </div>
           </div>
           
@@ -791,7 +836,7 @@ const PathfindingVisualizer = () => {
                 return (
                   <div key={rowIdx} className="row">
                     {row.map((node, nodeIdx) => {
-                      const { row, col, isStart, isFinish, isWall, isWeight, isVisited, isPath } = node;
+                      const { row, col, isStart, isFinish, isWall, isWeight, isVisited, isPath, weight } = node;
                       return (
                         <Node
                           key={nodeIdx}
@@ -803,6 +848,7 @@ const PathfindingVisualizer = () => {
                           isWeight={isWeight}
                           isVisited={isVisited}
                           isPath={isPath}
+                          weight={weight}
                           onMouseDown={(r, c) => handleMouseDown(r, c)}
                           onMouseEnter={(r, c) => handleMouseEnter(r, c)}
                           onMouseUp={() => handleMouseUp()}
@@ -814,13 +860,59 @@ const PathfindingVisualizer = () => {
               })}
             </div>
             <div className="algorithm-stats">
-              <span className="algorithm-name astar-color">A*:</span>
-              <span>Nodes: {astarStats.visitedNodes}</span>
-              <span>Path: {astarStats.pathLength}</span>
+              <span>Nodes Visited: {astarStats.visitedNodes}</span>
+              <span>Path Length: {astarStats.pathLength}</span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Save Grid Modal */}
+      {showSaveModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h2>Save Grid</h2>
+            <div className="modal-content">
+              <input
+                type="text"
+                placeholder="Enter grid name"
+                value={gridName}
+                onChange={(e) => setGridName(e.target.value)}
+                className="modal-input"
+              />
+              <div className="modal-buttons">
+                <button onClick={handleSaveGrid} className="modal-button save">Save</button>
+                <button onClick={() => {
+                  setShowSaveModal(false);
+                  setGridName('');
+                }} className="modal-button cancel">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Load Grid Modal */}
+      {showLoadModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h2>Load Grid</h2>
+            <div className="modal-content">
+              <div className="grid-list">
+                {savedGrids.map((grid, index) => (
+                  <div key={index} className="grid-item" onClick={() => handleLoadGrid(grid)}>
+                    <span className="grid-name">{grid.name}</span>
+                    <span className="grid-date">{new Date(grid.timestamp).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="modal-buttons">
+                <button onClick={() => setShowLoadModal(false)} className="modal-button cancel">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

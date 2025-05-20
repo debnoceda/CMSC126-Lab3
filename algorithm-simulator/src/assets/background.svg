@@ -1,0 +1,16 @@
+<svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="trufflePattern" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+      <circle cx="10" cy="10" r="5" fill="#8B5E3C" />
+      <circle cx="60" cy="40" r="3" fill="#A67B5B" />
+      <circle cx="30" cy="80" r="4" fill="#7B4B2A" />
+      <circle cx="90" cy="90" r="2" fill="#5C3C1A" />
+    </pattern>
+  </defs>
+
+  <!-- Solid background -->
+  <rect width="100%" height="100%" fill="#AB9B8E" />
+
+  <!-- Subtle pattern overlay -->
+  <rect width="100%" height="100%" fill="url(#trufflePattern)" opacity="0.15"/>
+</svg>
