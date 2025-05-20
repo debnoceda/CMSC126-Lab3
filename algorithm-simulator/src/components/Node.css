@@ -58,8 +58,40 @@
 }
 
 .node-visited {
-  background-color: rgba(0, 190, 218, 0.75);
+  background-image: linear-gradient(rgba(0, 190, 218, 0.2), rgba(0, 190, 218, 0.2)), var(--ground-bg);
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  animation: visitedAnimation 1.5s ease-out forwards;
   z-index: 1;
+  box-shadow: 0 0 10px rgba(0, 190, 218, 0.5);
+}
+
+/* Special case for start node when visited */
+.node-start.node-visited {
+  background-image: linear-gradient(rgba(0, 190, 218, 0.2), rgba(0, 190, 218, 0.2)), url('../assets/pig.png'), var(--ground-bg);
+  background-size: contain, cover, cover;
+  background-position: center, center, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  z-index: 3;
+}
+
+/* Special case for finish node when visited */
+.node-finish.node-visited {
+  background-image: linear-gradient(rgba(0, 190, 218, 0.2), rgba(0, 190, 218, 0.2)), url('../assets/cross.png'), var(--ground-bg);
+  background-size: contain, cover, cover;
+  background-position: center, center, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  z-index: 3;
+}
+
+/* Special case for finish node when visited */
+.node-weight.node-visited {
+  background-image: linear-gradient(rgba(0, 190, 218, 0.2), rgba(0, 190, 218, 0.2)), var(--weight-bg), var(--ground-bg);
+  background-size: contain, cover, cover;
+  background-position: center, center, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  z-index: 3;
 }
 
 .node-shortest-path {
@@ -78,7 +110,7 @@
   background-size: cover, contain, cover !important;
   background-position: center, center, center !important;
   background-repeat: no-repeat, no-repeat, no-repeat !important;
-  z-index: 2 !important;
+  z-index: 2 !important;  
   opacity: 0.9;
   animation: shortestPathWeight 1.5s ease-out forwards;
   box-shadow: 0 0 10px rgba(44, 44, 42, 0.5);
