@@ -4,6 +4,7 @@
   display: flex;
   height: 100vh;
   max-height: 100vh;
+  width: 100%;
   overflow: hidden;
   font-family: 'Jersey 10', sans-serif;
   background-color: #AB9B8E;
@@ -13,10 +14,12 @@
   background-size: 8px 8px;
   padding: 20px;
   gap: 20px;
+  box-sizing: border-box;
 }
 
 .sidebar {
   width: 20%;
+  height: 100vh;
   background-color: #AB9B8E;
   padding: 15px;
   border: 2px solid #000000;
@@ -40,6 +43,7 @@
   background-color: #AB9B8E;
   border: 2px solid #000000;
   box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
 }
 
 .sidebar h1 {
@@ -249,7 +253,10 @@ select:disabled {
   flex-wrap: wrap;
   width: 100%;
   height: calc(100% - 65px);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 10px;
+  box-sizing: border-box;
 }
 
 .algorithm-grid {
@@ -257,8 +264,10 @@ select:disabled {
   flex-direction: column;
   align-items: center;
   width: 45%;
+  min-width: 300px;
   max-width: 500px;
   height: 100%;
+  box-sizing: border-box;
 }
 
 .algorithm-title {
@@ -349,13 +358,39 @@ select:disabled {
   .sidebar, .main-content {
     height: calc(100vh - 20px);
   }
+
+  /* Custom scrollbar styling for grid-container */
+  .grid-container::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .grid-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+  }
+
+  .grid-container::-webkit-scrollbar-thumb {
+    background: #cba45f;
+    border: 2px solid #000000;
+    border-radius: 4px;
+  }
+
+  .grid-container::-webkit-scrollbar-thumb:hover {
+    background: #d4b36a;
+  }
+
+  /* For Firefox */
+  .grid-container {
+    scrollbar-width: thin;
+    scrollbar-color: #cba45f rgba(0, 0, 0, 0.1);
+  }
   
   .algorithm-grid {
-    width: 90%;
+    width: 100%;
   }
 }
 
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 425px) {
   .pathfinding-visualizer {
     flex-direction: column;
     padding: 10px;

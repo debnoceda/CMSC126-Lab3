@@ -728,7 +728,7 @@ const PathfindingVisualizer = () => {
                   />
                 </div>
               )}
-              <button onClick={clearWalls} disabled={isRunning}>Clear Walls & Weights</button>
+              <button onClick={clearWalls} disabled={isRunning}>Clear</button>
             </div>
           </div>
           
