@@ -376,6 +376,35 @@ select:disabled {
     flex-direction: column;
     align-items: center;
     height: auto;
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 10px;
+  }
+
+  /* Custom scrollbar styling for grid-container */
+  .grid-container::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .grid-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+  }
+
+  .grid-container::-webkit-scrollbar-thumb {
+    background: #cba45f;
+    border: 2px solid #000000;
+    border-radius: 4px;
+  }
+
+  .grid-container::-webkit-scrollbar-thumb:hover {
+    background: #d4b36a;
+  }
+
+  /* For Firefox */
+  .grid-container {
+    scrollbar-width: thin;
+    scrollbar-color: #cba45f rgba(0, 0, 0, 0.1);
   }
   
   .algorithm-grid {
@@ -386,6 +415,36 @@ select:disabled {
   
   .grid {
     height: calc(100% - 40px);
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .pathfinding-visualizer {
+    padding: 5px;
+    gap: 5px;
+  }
+  
+  .sidebar {
+    max-height: 250px;
+    padding: 8px;
+  }
+  
+  .algorithm-grid {
+    width: 95%;
+    height: 300px;
+  }
+  
+  .grid {
+    height: calc(100% - 30px);
+  }
+  
+  .button {
+    padding: 6px 10px;
+    font-size: 0.9rem;
+  }
+  
+  .algorithm-selector {
+    font-size: 0.9rem;
   }
 }
 
