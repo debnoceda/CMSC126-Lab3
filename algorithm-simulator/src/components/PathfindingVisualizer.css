@@ -402,18 +402,13 @@ select:disabled {
     height: auto;
     max-height: 300px;
   }
+
+  .sidebar h1 img{
+    max-width: 50%;
+  }
   
   .main-content {
     height: auto;
-  }
-  
-  .grid-container {
-    flex-direction: column;
-    align-items: center;
-    height: auto;
-    max-height: 600px;
-    overflow-y: auto;
-    padding-right: 10px;
   }
 
   /* Custom scrollbar styling for grid-container */
@@ -450,36 +445,6 @@ select:disabled {
   
   .grid {
     height: calc(100% - 40px);
-  }
-}
-
-@media screen and (max-width: 480px) {
-  .pathfinding-visualizer {
-    padding: 5px;
-    gap: 5px;
-  }
-  
-  .sidebar {
-    max-height: 250px;
-    padding: 8px;
-  }
-  
-  .algorithm-grid {
-    width: 95%;
-    height: 300px;
-  }
-  
-  .grid {
-    height: calc(100% - 30px);
-  }
-  
-  .button {
-    padding: 6px 10px;
-    font-size: 0.9rem;
-  }
-  
-  .algorithm-selector {
-    font-size: 0.9rem;
   }
 }
 
