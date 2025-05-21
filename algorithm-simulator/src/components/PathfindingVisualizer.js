@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Node from './Node';
 import { dijkstra, getNodesInShortestPathOrder as getDijkstraPath, Node as NodeClass } from '../algorithms/dijkstra';
 import { astar, getNodesInShortestPathOrder as getAStarPath } from '../algorithms/astar';
@@ -14,14 +14,13 @@ const PathfindingVisualizer = () => {
   const [isSettingStart, setIsSettingStart] = useState(false);
   const [isSettingFinish, setIsSettingFinish] = useState(false);
   const [isSettingWeight, setIsSettingWeight] = useState(false);
-  const [currentNodeType, setCurrentNodeType] = useState('wall'); // 'wall' or 'weight'
+  const [currentNodeType, setCurrentNodeType] = useState(null); // Changed from 'wall' to null
   const [visualizationSpeed, setVisualizationSpeed] = useState(50); // Default speed
   const [gridSize, setGridSize] = useState({ rows: 10, cols: 10 }); // Default 10x10 grid
   const [isRunning, setIsRunning] = useState(false); // Track animation state
   const [weightValue, setWeightValue] = useState(5); // Default weight value
   const [dijkstraStats, setDijkstraStats] = useState({ visitedNodes: 0, pathLength: 0 });
   const [astarStats, setAstarStats] = useState({ visitedNodes: 0, pathLength: 0 });
-  const [isLoadingSavedGrid, setIsLoadingSavedGrid] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [gridName, setGridName] = useState('');
@@ -30,8 +29,18 @@ const PathfindingVisualizer = () => {
   const dijkstraGridRef = useRef(null);
   const astarGridRef = useRef(null);
   
-  // Move initializeGrid before useEffect and wrap in useCallback
-  const initializeGrid = useCallback(() => {
+  useEffect(() => {
+    initializeGrid();
+  }, [gridSize]);
+  
+  // Set CSS variables for grid dimensions
+  useEffect(() => {
+    // Update CSS variables for grid dimensions
+    document.documentElement.style.setProperty('--grid-rows', gridSize.rows);
+    document.documentElement.style.setProperty('--grid-cols', gridSize.cols);
+  }, [gridSize]);
+
+  const initializeGrid = () => {
     const newGrid = [];
     for (let row = 0; row < gridSize.rows; row++) {
       const currentRow = [];
@@ -55,28 +64,26 @@ const PathfindingVisualizer = () => {
     // Also create copies for each algorithm
     setDijkstraGrid(deepCopyGrid(newGrid));
     setAstarGrid(deepCopyGrid(newGrid));
-  }, [gridSize, startNodePos, finishNodePos]);
+  };
 
   // Deep copy a grid to avoid reference issues
   const deepCopyGrid = (originalGrid) => {
     return originalGrid.map(row => 
-      row.map(node => ({...node}))
+      row.map(node => {
+        const newNode = new NodeClass(node.row, node.col);
+        newNode.isStart = node.isStart;
+        newNode.isFinish = node.isFinish;
+        newNode.isWall = node.isWall;
+        newNode.isWeight = node.isWeight;
+        newNode.weight = node.weight;
+        newNode.isVisited = node.isVisited;
+        newNode.isPath = node.isPath;
+        newNode.distance = node.distance;
+        newNode.previousNode = node.previousNode;
+        return newNode;
+      })
     );
   };
-
-  useEffect(() => {
-    // Only initialize grid if we're not loading a saved grid
-    if (!isLoadingSavedGrid) {
-      initializeGrid();
-    }
-  }, [gridSize, isLoadingSavedGrid, initializeGrid]);
-  
-  // Set CSS variables for grid dimensions
-  useEffect(() => {
-    // Update CSS variables for grid dimensions
-    document.documentElement.style.setProperty('--grid-rows', gridSize.rows);
-    document.documentElement.style.setProperty('--grid-cols', gridSize.cols);
-  }, [gridSize]);
 
   // Add weight value control to the UI
   const handleWeightValueChange = (e) => {
@@ -118,7 +125,7 @@ const PathfindingVisualizer = () => {
         setDijkstraGrid(deepCopyGrid(newGrid));
         setAstarGrid(deepCopyGrid(newGrid));
       }
-    } else {
+    } else if (currentNodeType) { // Only allow drawing if a mode is active
       // Toggle wall or weight based on current mode
       let newGrid;
       if (currentNodeType === 'wall') {
@@ -135,7 +142,7 @@ const PathfindingVisualizer = () => {
   };
 
   const handleMouseEnter = (row, col) => {
-    if (!mouseIsPressed || isRunning) return;
+    if (!mouseIsPressed || isRunning || !currentNodeType) return; // Add check for currentNodeType
     
     // Only toggle walls/weights when dragging
     let newGrid;
@@ -215,15 +222,15 @@ const PathfindingVisualizer = () => {
       setDijkstraStats({
         visitedNodes: visitedNodesInOrder.length,
         pathLength: nodesInShortestPathOrder
-          .filter(node => !node.isStart && !node.isFinish)
-          .reduce((sum, node) => sum + node.weight, 0)
+        .filter(node => !node.isStart && !node.isFinish)
+        .reduce((sum, node) => sum + node.weight, 0)
       });
     } else {
       setAstarStats({
         visitedNodes: visitedNodesInOrder.length,
         pathLength: nodesInShortestPathOrder
-          .filter(node => !node.isStart && !node.isFinish)
-          .reduce((sum, node) => sum + node.weight, 0)
+        .filter(node => !node.isStart && !node.isFinish)
+        .reduce((sum, node) => sum + node.weight, 0)
       });
     }
     
@@ -511,7 +518,9 @@ const PathfindingVisualizer = () => {
 
   // Store grid in local storage
   const saveGrid = () => {
+    // Don't save during animation
     if (isRunning) return;
+    
     setShowSaveModal(true);
   };
 
@@ -521,183 +530,146 @@ const PathfindingVisualizer = () => {
       return;
     }
 
-    try {
-      const gridState = {
-        name: gridName.trim(),
-        walls: [],
-        weights: [],
-        startNodePos,
-        finishNodePos,
-        gridSize,
-        timestamp: new Date().toISOString()
-      };
-      
-      // Save wall and weight positions
-      for (let row = 0; row < grid.length; row++) {
-        for (let col = 0; col < grid[0].length; col++) {
-          const node = grid[row][col];
-          if (node.isWall) {
-            gridState.walls.push({ row, col });
-          }
-          if (node.isWeight) {
-            gridState.weights.push({ row, col, weight: node.weight });
-          }
+    const gridState = {
+      name: gridName,
+      timestamp: Date.now(),
+      walls: [],
+      weights: [],
+      startNodePos,
+      finishNodePos,
+      gridSize
+    };
+    
+    // Save wall and weight positions
+    for (let row = 0; row < grid.length; row++) {
+      for (let col = 0; col < grid[0].length; col++) {
+        const node = grid[row][col];
+        if (node.isWall) {
+          gridState.walls.push({ row, col });
+        }
+        if (node.isWeight) {
+          gridState.weights.push({ row, col, weight: node.weight });
         }
       }
-      
-      // Get existing saved grids
-      const currentSavedGrids = JSON.parse(localStorage.getItem('savedGrids') || '[]');
-      
-      // Add new grid to saved grids
-      currentSavedGrids.push(gridState);
-      
-      // Keep only the last 5 saved grids
-      const recentGrids = currentSavedGrids.slice(-5);
-      
-      // Save to localStorage
-      localStorage.setItem('savedGrids', JSON.stringify(recentGrids));
-      setSavedGrids(recentGrids);
-      setShowSaveModal(false);
-      setGridName('');
-      
-      // Log the saved state for debugging
-      console.log('Saved grid state:', gridState);
-    } catch (error) {
-      console.error('Error saving grid:', error);
-      alert('Failed to save grid. Please try again.');
     }
+    
+    console.log('Saving grid state:', gridState);
+    
+    // Get existing saved grids
+    const existingGrids = JSON.parse(localStorage.getItem('savedGrids') || '[]');
+    
+    // Add new grid
+    existingGrids.push(gridState);
+    
+    // Save to localStorage
+    localStorage.setItem('savedGrids', JSON.stringify(existingGrids));
+    
+    // Update state
+    setSavedGrids(existingGrids);
+    setShowSaveModal(false);
+    setGridName('');
+    alert('Grid saved successfully!');
   };
 
   // Load grid from local storage
   const loadGrid = () => {
+    // Don't load during animation
     if (isRunning) return;
     
-    try {
-      // Get saved grids
-      const currentSavedGrids = JSON.parse(localStorage.getItem('savedGrids') || '[]');
-      setSavedGrids(currentSavedGrids);
-      
-      if (currentSavedGrids.length === 0) {
-        alert('No saved grids found!');
-        return;
-      }
-      
-      setShowLoadModal(true);
-    } catch (error) {
-      console.error('Error loading grid:', error);
-      alert('Failed to load grid. Please try again.');
+    // Get saved grids
+    const savedGrids = JSON.parse(localStorage.getItem('savedGrids') || '[]');
+    if (savedGrids.length === 0) {
+      alert('No saved grids found!');
+      return;
     }
+    
+    console.log('Available saved grids:', savedGrids);
+    setSavedGrids(savedGrids);
+    setShowLoadModal(true);
   };
 
   const handleLoadGrid = (gridState) => {
-    try {
-      // Set loading flag
-      setIsLoadingSavedGrid(true);
-      
-      // Log the loaded state for debugging
-      console.log('Loading grid state:', gridState);
-      
-      // Create new grid with saved state
-      const newGrid = [];
-      for (let row = 0; row < gridState.gridSize.rows; row++) {
-        const currentRow = [];
-        for (let col = 0; col < gridState.gridSize.cols; col++) {
-          const newNode = new NodeClass(row, col);
-          
-          // Set start and finish nodes
-          if (row === gridState.startNodePos.row && col === gridState.startNodePos.col) {
-            newNode.isStart = true;
-          }
-          if (row === gridState.finishNodePos.row && col === gridState.finishNodePos.col) {
-            newNode.isFinish = true;
-          }
-          
-          // Set walls
-          const isWall = gridState.walls.some(wall => wall.row === row && wall.col === col);
-          if (isWall) {
-            newNode.isWall = true;
-          }
-          
-          // Set weights
-          const weightNode = gridState.weights.find(weight => weight.row === row && weight.col === col);
-          if (weightNode) {
-            newNode.isWeight = true;
-            newNode.weight = weightNode.weight;
-          }
-          
-          currentRow.push(newNode);
+    console.log('Loading grid state:', gridState);
+    
+    // First update the grid size and positions
+    setGridSize(gridState.gridSize);
+    setStartNodePos(gridState.startNodePos);
+    setFinishNodePos(gridState.finishNodePos);
+    
+    // Create a new grid with the loaded state
+    const newGrid = [];
+    for (let row = 0; row < gridState.gridSize.rows; row++) {
+      const currentRow = [];
+      for (let col = 0; col < gridState.gridSize.cols; col++) {
+        const newNode = new NodeClass(row, col);
+        
+        // Set start and finish nodes
+        if (row === gridState.startNodePos.row && col === gridState.startNodePos.col) {
+          newNode.isStart = true;
         }
-        newGrid.push(currentRow);
+        if (row === gridState.finishNodePos.row && col === gridState.finishNodePos.col) {
+          newNode.isFinish = true;
+        }
+        
+        // Set walls
+        for (const wall of gridState.walls) {
+          if (row === wall.row && col === wall.col) {
+            newNode.isWall = true;
+            break;
+          }
+        }
+        
+        // Set weights
+        for (const weight of gridState.weights) {
+          if (row === weight.row && col === weight.col) {
+            newNode.isWeight = true;
+            newNode.weight = weight.weight;
+            break;
+          }
+        }
+        
+        currentRow.push(newNode);
       }
-      
-      // First update grid size and positions
-      setGridSize(gridState.gridSize);
-      setStartNodePos(gridState.startNodePos);
-      setFinishNodePos(gridState.finishNodePos);
-      
-      // Then update the grids
-      setGrid(newGrid);
-      
-      // Create deep copies for algorithm grids
-      const dijkstraGridCopy = deepCopyGrid(newGrid);
-      const astarGridCopy = deepCopyGrid(newGrid);
-      
-      // Update algorithm grids
-      setDijkstraGrid(dijkstraGridCopy);
-      setAstarGrid(astarGridCopy);
-      
-      // Reset stats
-      setDijkstraStats({ visitedNodes: 0, pathLength: 0 });
-      setAstarStats({ visitedNodes: 0, pathLength: 0 });
-      
-      // Force a re-render by updating a dummy state
-      setCurrentNodeType(prev => prev === 'wall' ? 'weight' : 'wall');
-      
-      // Reset loading flag after a short delay
-      setTimeout(() => {
-        setIsLoadingSavedGrid(false);
-        // Force another re-render after loading is complete
-        setCurrentNodeType(prev => prev === 'wall' ? 'weight' : 'wall');
-      }, 100);
-      
-      setShowLoadModal(false);
-      
-      // Log the loaded grid for debugging
-      console.log('Loaded grid:', newGrid);
-      console.log('Walls:', gridState.walls);
-      console.log('Weights:', gridState.weights);
-    } catch (error) {
-      console.error('Error loading grid:', error);
-      alert('Failed to load grid. Please try again.');
-      setIsLoadingSavedGrid(false);
+      newGrid.push(currentRow);
     }
+    
+    console.log('Created new grid:', newGrid);
+    console.log('Walls:', gridState.walls);
+    console.log('Weights:', gridState.weights);
+    
+    // Update all grid states in a single batch
+    Promise.resolve().then(() => {
+      setGrid(newGrid);
+      setDijkstraGrid(deepCopyGrid(newGrid));
+      setAstarGrid(deepCopyGrid(newGrid));
+    });
+    
+    setShowLoadModal(false);
   };
+
+  // Add a useEffect to handle grid initialization
+  useEffect(() => {
+    if (grid.length > 0) {
+      // Force a re-render of the grid
+      const newGrid = deepCopyGrid(grid);
+      setGrid(newGrid);
+      setDijkstraGrid(deepCopyGrid(newGrid));
+      setAstarGrid(deepCopyGrid(newGrid));
+    }
+  }, [gridSize, startNodePos, finishNodePos]);
 
   return (
     <div className="pathfinding-visualizer">
       <div className="sidebar">
-        <h1>
-          <img src={require('../assets/logo-export.png')} alt="Pathfinding Visualizer" />
-        </h1>
+        <h1><img src={require('../assets/logo-export.png')} alt="Pathfinding Visualizer" /></h1>
         
         <div className="sidebar-content">
           <div className="sidebar-section">
-            <h2>Algorithms</h2>
-            <div className="controls">
-              <button onClick={visualizeAlgorithms} disabled={isRunning}>Find Path</button>
-              <button onClick={resetGrid} disabled={isRunning}>Reset</button>
-            </div>
-          </div>
-          
-          <div className="sidebar-section">
             <h2>Grid Setup</h2>
             <div className="controls">
-              <button onClick={() => setIsSettingStart(true)} disabled={isRunning}>Set Start Node</button>
-              <button onClick={() => setIsSettingFinish(true)} disabled={isRunning}>Set End Node</button>
-              <button onClick={setRandomStartFinish} disabled={isRunning}>Random Start/End</button>
-              
+
               <div className="size-control">
-                <label>Grid Size:</label>
+                <label>Dimension:</label>
                 <select 
                   value={`${gridSize.rows}x${gridSize.cols}`} 
                   onChange={(e) => {
@@ -713,25 +685,40 @@ const PathfindingVisualizer = () => {
                   <option value="30x30">30x30</option>
                 </select>
               </div>
+
+              <button onClick={() => setIsSettingStart(true)} disabled={isRunning}>Set Start</button>
+              <button onClick={() => setIsSettingFinish(true)} disabled={isRunning}>Set End</button>
+              
             </div>
           </div>
           
           <div className="sidebar-section">
-            <h2>Node Types</h2>
+            <h2>Draw</h2>
             <div className="controls">
               <button 
                 onClick={() => {
-                  setCurrentNodeType('wall');
-                  setIsSettingWeight(false);
+                  if (currentNodeType === 'wall') {
+                    setCurrentNodeType(null);
+                    setIsSettingWeight(false);
+                  } else {
+                    setCurrentNodeType('wall');
+                    setIsSettingWeight(false);
+                  }
                 }} 
                 disabled={isRunning}
+                style={{backgroundColor: currentNodeType === 'wall' ? '#2E7D32' : ''}}
               >
                 Draw Walls
               </button>
               <button 
                 onClick={() => {
-                  setCurrentNodeType('weight');
-                  setIsSettingWeight(true);
+                  if (currentNodeType === 'weight') {
+                    setCurrentNodeType(null);
+                    setIsSettingWeight(false);
+                  } else {
+                    setCurrentNodeType('weight');
+                    setIsSettingWeight(true);
+                  }
                 }} 
                 disabled={isRunning}
                 style={{backgroundColor: currentNodeType === 'weight' ? '#2E7D32' : ''}}
@@ -740,7 +727,7 @@ const PathfindingVisualizer = () => {
               </button>
               {currentNodeType === 'weight' && (
                 <div className="weight-control">
-                  <label>Weight Value:</label>
+                  <label>Value:</label>
                   <input
                     type="number"
                     min="1"
@@ -756,10 +743,11 @@ const PathfindingVisualizer = () => {
           </div>
           
           <div className="sidebar-section">
-            <h2>Maze Generation</h2>
+            <h2>Random Generation</h2>
             <div className="controls">
-              <button onClick={generateRandomMaze} disabled={isRunning}>Generate Random Maze</button>
-              <button onClick={generateWeightedMaze} disabled={isRunning}>Generate Weighted Maze</button>
+              <button onClick={setRandomStartFinish} disabled={isRunning}>Random Start/End</button>
+              <button onClick={generateRandomMaze} disabled={isRunning}>Random Maze</button>
+              <button onClick={generateWeightedMaze} disabled={isRunning}>Random Weighted Maze</button>
             </div>
           </div>
           
@@ -780,18 +768,23 @@ const PathfindingVisualizer = () => {
               </div>
             </div>
           </div>
-          
-          <div className="sidebar-section">
-            <h2>Save & Load</h2>
-            <div className="controls">
-              <button onClick={saveGrid} disabled={isRunning}>Save Grid</button>
-              <button onClick={loadGrid} disabled={isRunning}>Load Grid</button>
-            </div>
-          </div>
         </div>
       </div>
+        
       
       <div className="main-content">
+      
+      <div className="button-container">
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={visualizeAlgorithms} disabled={isRunning}>Find Path</button>
+          <button onClick={resetGrid} disabled={isRunning}>Clear Grid</button>
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={saveGrid} disabled={isRunning}>Save Grid</button>
+          <button onClick={loadGrid} disabled={isRunning}>Load Grid</button>
+        </div>
+      </div>
+
         <div className="grid-container">
           <div className="algorithm-grid">
             <div className="algorithm-title">Dijkstra's Algorithm</div>
@@ -824,8 +817,8 @@ const PathfindingVisualizer = () => {
               })}
             </div>
             <div className="algorithm-stats">
-              <span>Nodes Visited: {dijkstraStats.visitedNodes}</span>
-              <span>Path Length: {dijkstraStats.pathLength}</span>
+              <span>Nodes: {dijkstraStats.visitedNodes}</span>
+              <span>Path: {dijkstraStats.pathLength}</span>
             </div>
           </div>
           
@@ -860,8 +853,8 @@ const PathfindingVisualizer = () => {
               })}
             </div>
             <div className="algorithm-stats">
-              <span>Nodes Visited: {astarStats.visitedNodes}</span>
-              <span>Path Length: {astarStats.pathLength}</span>
+              <span>Nodes: {astarStats.visitedNodes}</span>
+              <span>Path: {astarStats.pathLength}</span>
             </div>
           </div>
         </div>
@@ -902,7 +895,6 @@ const PathfindingVisualizer = () => {
                 {savedGrids.map((grid, index) => (
                   <div key={index} className="grid-item" onClick={() => handleLoadGrid(grid)}>
                     <span className="grid-name">{grid.name}</span>
-                    <span className="grid-date">{new Date(grid.timestamp).toLocaleString()}</span>
                   </div>
                 ))}
               </div>

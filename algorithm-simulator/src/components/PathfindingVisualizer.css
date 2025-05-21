@@ -150,6 +150,30 @@ button:disabled {
   top: 0;
 }
 
+.weight-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+
+.weight-control input {
+  padding: 8px 12px;
+  border: 2px solid #000000;
+  border-radius: 4px;
+  font-size: 1.2rem;
+  background-color: #cba45f;
+  color: #000000;
+  font-family: 'Jersey 10', sans-serif;
+  width: 100%;
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.2);
+  position: relative;
+  top: 0;
+  transition: all 0.3s ease;
+}
+
+
 .speed-control, .size-control, .algorithm-control {
   display: flex;
   flex-direction: column;
@@ -210,17 +234,12 @@ select:disabled {
   top: 0;
 }
 
-.instructions {
-  margin-bottom: 3px;
-  text-align: center;
-  font-size: 1.5rem;
-  min-height: 18px;
-  font-family: 'Jersey 10', sans-serif;
-}
-
-.highlight {
-  font-weight: bold;
-  color: #ff6b6b;
+.button-container {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 20px;
+  margin-bottom: 20px;
 }
 
 .grid-container {
