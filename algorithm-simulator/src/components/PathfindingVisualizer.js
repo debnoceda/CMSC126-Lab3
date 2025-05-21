@@ -553,8 +553,6 @@ const PathfindingVisualizer = () => {
       }
     }
     
-    console.log('Saving grid state:', gridState);
-    
     // Get existing saved grids
     const existingGrids = JSON.parse(localStorage.getItem('savedGrids') || '[]');
     
@@ -582,15 +580,11 @@ const PathfindingVisualizer = () => {
       alert('No saved grids found!');
       return;
     }
-    
-    console.log('Available saved grids:', savedGrids);
     setSavedGrids(savedGrids);
     setShowLoadModal(true);
   };
 
   const handleLoadGrid = (gridState) => {
-    console.log('Loading grid state:', gridState);
-    
     // First update the grid size and positions
     setGridSize(gridState.gridSize);
     setStartNodePos(gridState.startNodePos);
@@ -632,11 +626,6 @@ const PathfindingVisualizer = () => {
       }
       newGrid.push(currentRow);
     }
-    
-    console.log('Created new grid:', newGrid);
-    console.log('Walls:', gridState.walls);
-    console.log('Weights:', gridState.weights);
-    
     // Update all grid states in a single batch
     Promise.resolve().then(() => {
       setGrid(newGrid);
