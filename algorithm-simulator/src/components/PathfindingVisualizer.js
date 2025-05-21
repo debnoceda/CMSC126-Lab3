@@ -3,6 +3,7 @@ import Node from './Node';
 import { dijkstra, getNodesInShortestPathOrder as getDijkstraPath, Node as NodeClass } from '../algorithms/dijkstra';
 import { astar, getNodesInShortestPathOrder as getAStarPath } from '../algorithms/astar';
 import './PathfindingVisualizer.css';
+import { Icon } from "@iconify/react";
 
 const PathfindingVisualizer = () => {
   const [grid, setGrid] = useState([]);
@@ -765,12 +766,20 @@ const PathfindingVisualizer = () => {
       
       <div className="button-container">
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={visualizeAlgorithms} disabled={isRunning}>Find Path</button>
-          <button onClick={resetGrid} disabled={isRunning}>Clear Grid</button>
+          <button onClick={visualizeAlgorithms} disabled={isRunning}>
+            <Icon icon="material-symbols:play-arrow-outline" width="24" height="24"  style={{color: "#000"}} />
+          </button>
+          <button onClick={resetGrid} disabled={isRunning}>
+            <Icon icon="material-symbols:delete-outline" width="24" height="24"  style={{color: "#000"}} />
+          </button>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={saveGrid} disabled={isRunning}>Save Grid</button>
-          <button onClick={loadGrid} disabled={isRunning}>Load Grid</button>
+          <button onClick={saveGrid} disabled={isRunning}>
+            <Icon icon="material-symbols:save-outline" width="24" height="24"  style={{color: "#000"}} />
+          </button>
+          <button onClick={loadGrid} disabled={isRunning}>
+            <Icon icon="lets-icons:load-list" width="24" height="24"  style={{color: "#000"}} />
+          </button>
         </div>
       </div>
 
